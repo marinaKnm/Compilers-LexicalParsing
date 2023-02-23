@@ -1,0 +1,15 @@
+if (if ("Java" prefix "script") "no" else "Javascript" prefix "Javascript")
+    if("langName" prefix "Java")
+        "Static"
+    else
+        if(reverse "script" prefix reverse "script")
+            "Dynamic"
+        else
+            "Unknown"
+else
+    if (reverse "script" prefix reverse "langName")
+        "Probably Dynamic"
+    else
+        "Unknown"
+
+

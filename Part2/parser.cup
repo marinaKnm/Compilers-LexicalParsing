@@ -1,0 +1,147 @@
+/*---------------------------------------  Package and Import Specifications--------------------------------------*/
+import java_cup.runtime.*;
+import java.lang.StringBuilder;
+
+/*-------------------------------------------- Usercode Components ---------------------------------------------- */
+//στο action code ορίζουμε κάποιες συναρτήσεις που θα μας βοηθήσουμε να παράξουμε σωστό κώδικα java
+action code {:
+    public void printStart() {  //χρήσιμη συνάρτηση για την εκτύπωση της αρχής του προγράμματος Java
+        String output = "\npublic class Main {\n\t";
+        output += "public static void main(String[] args) {";
+        System.out.println(output);
+    }
+
+    //χρήσιμη συνάρτηση για την εκτύπωση expression μέσα στην main, 
+    public String getLine(String str) {
+        String output = "\t\tSystem.out.println("+str+");\n";
+        return output;
+    }
+:}
+
+parser code {:
+    // Connect this parser to a scanner!
+    Scanner s;
+    Parser(Scanner s){ this.s=s; }
+:}
+
+/* define how to connect to the scanner! */
+scan with {: return s.next_token(); :};
+
+/*--------------------------------------------------Symbol Lists -------------------------------------------------*/
+
+/* ---------------------------------- Terminals (tokens returned by the scanner). --------------------------------*/
+terminal            CONCAT, LPAREN, RPAREN, RBRACKET, COMMA, IF, ELSE, PREFIX, REVERSE, FDECL;
+terminal String     STRING_LITERAL;        // our values are only string literals
+terminal String     IDENTIFIER; 
+
+/*---------------------------------------------------  Non terminals ---------------------------------------------*/
+non terminal String     arg_next, expr2, goal, program, reverse, reverse1, if_else, prefix, if_else_expr, expr1;
+non terminal String     str, func_decl, body, fun_call, args;      // used to store evaluated subexpressions
+non terminal    Goal;
+
+/*--------------------------------------------Precedence Declarations-------------------------------------------- */
+precedence nonassoc PREFIX;
+precedence nonassoc IF, ELSE;
+precedence left CONCAT;
+precedence right REVERSE;
+
+/*-----------------------------------------------The Grammar Rules------------------------------------------------*/
+
+Goal ::= goal                           {:  System.out.println("\n}");  :}; //κλείνει brackets για κλάση
+goal ::= func_decl:fd1 goal             {:  System.out.println(fd1); :}
+        | program:p                     {:
+                                            printStart();
+                                            if (p==null) { p = "";}
+                                            System.out.println(p);
+                                            System.out.println("\t}");   //κλείναι brackets για main()
+                                        :}
+        ;
+
+program ::= expr1:e program:p           {:  if (p == null) { p = ""; }
+                                            RESULT = getLine(e) + p;
+                                        :}
+         |;
+
+/////////////////////////////////////////////////////////////////////////        
+str ::= IDENTIFIER:iden                 {:  RESULT = iden; :}
+      | STRING_LITERAL:s                {:  RESULT = "\"" + s + "\""; :}
+      ;
+
+//reverse για πολλαπλές εφαρμογές του operator reverse πάνω σε ένα str (IDENTIFIER, STRING_LITERAL) ή στη τιμή ενός if ή ενός function call
+reverse ::= REVERSE reverse1:s          {:  RESULT = "(new StringBuilder("+ s +")).reverse().toString()"; :}
+         ;
+reverse1 ::= REVERSE reverse1:s         {:  RESULT = "(new StringBuilder("+s+")).reverse().toString()"; :}
+          | str:s                       {:  RESULT = s; :}
+          | IF if_else:ie               {:  RESULT = ie; :}
+          | fun_call:f                  {:  RESULT = f; :}
+          ;
+
+//expr1 για parse εκφράσεων με reverse ή/και concat ή/και if-else ή/και fun_calls
+//τέτοιες εκφράσεις μπορεί να βρίσκονται παντού (σώμα συνάρτησης, αυθαίρετα, μέσα σε if συνθήκη, στο σώμα if-else, στην κλήση μιας συνάρτησης) και έχουν τιμή ένα string
+expr1 ::= reverse:r expr2:e             {:  if (e == null) { e = ""; }
+                                            RESULT = r + e; :}
+        | str:s expr2:e                 {:  if (e == null) { e = ""; }
+                                            RESULT = s + e; :}     
+        | IF if_else:ie                 {:  RESULT = ie; :} 
+        | fun_call:f expr2:e            {:  if (e == null) { e = ""; }
+                                            RESULT = f + e; :}
+        ;
+expr2 ::= CONCAT expr1:e                {:  RESULT = "+" + e; :}
+        |;
+
+
+//if_else για συνθήκες if() ... else ...
+//γυρνάει ternary operation
+if_else ::= LPAREN prefix:c RPAREN if_else_expr:fe1 ELSE if_else_expr:fe2   {: RESULT = "(("+c+")?("+fe1+"):("+fe2+"))"; :}
+         ;  
+
+// για το σώμα των if(){} και else{} 
+if_else_expr ::=  expr1:e               {:  RESULT = e; :} 
+             ;
+
+//η μοναδική συνθήκη που επιτρέπεται στην γλώσσα μας είναι αν μια έκφραση ξεκινάει με μία άλλη έκφραση
+//αυτή η έκφραση μπορεί να είναι όσο πολύπλοκη γίνεται για τους operators: concat, reverse, if-else και να περιέχει ακόμη και κλήση συναρτήσεων
+prefix ::= expr1:e1 PREFIX expr1:e2     {:  RESULT = "(" + e2 + ")" + ".startsWith("+e1+")"; :}  
+        ;
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+// η παρακάτω γραμματική είναι για τον ορισμό συναρτήσεων
+//ο κανόνας με μη τερματικό args είναι κοινός και για τα ορίσματα σε function call και για να μην δεχόμαστε κάτι πέρα από Identifiers εδώ
+//πραγματοποιούμε ελέγχους, αν κάποιο από αυτά δεν είναι identifier τότε πετάμε Exception
+func_decl ::=  IDENTIFIER:i LPAREN args:a FDECL body:b RBRACKET {:
+                            
+                            if (a == null) {   a = ""; }  //αν δεν έχει ορίσματα
+
+                            //επειδή τα ορίσματα για δηλώσεις ή κλήσεις συναρτήσεων παράγονται από τον ίδιο κανόνα args και
+                            //εδώ βρισκόμαστε σε δήλωση συνάρτησης ελέγχουμε αν τα ορίσματα αποτελούνται μόνο από Identifiers
+                            //στην περίπτωση που δεν ισχύει αυτό πετάμε exception 
+                            else {  
+                                if (a.contains("\"") || a.contains("reverse ") || a.contains("+") || a.contains("(")) { throw new Exception("This is a literal string" + a); }
+                            
+                                //προσθέτουμε τον τύπο String για κάθε identifier
+                                a = "String " + a; 
+                                a = a.replaceAll(",", ", String ");
+                            }
+
+                            RESULT = "\tpublic static String " + i + "(" + a + ") { \n\t\treturn (" + b + ");\n\t}";
+                :}
+            ;
+
+
+body ::= expr1:e                        {:  RESULT = e; :}  //για το σώμα εκφράσεων if-else
+       ;
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// η παρακάτω γραμματική είναι για την κλήση συναρτήσεων
+fun_call ::= IDENTIFIER:i LPAREN args:a RPAREN   {: if (a==null) { a= ""; } 
+                                                    RESULT = i + "("+ a +")"; :}
+           ;
+//τα ορίσματα που προκύπτουν από το μη τερματικό args μπορεί να αποτελείται από STRING_LITERAL ή/και IDENTIFIER 
+//και κάθε όρισμα μπορεί να είναι όσο περίπλοκο μπορεί να είναι μια έκφραση τύπου expr1
+args ::= expr1:e arg_next:a             {:  if (a == null) { a =""; }
+                                            RESULT = e + a; :}
+       |;
+
+arg_next ::= COMMA args:a               {:  if (a == null) { throw new Exception(); }   //αν έχουμε τερματικό COMMA και δεξιά τίποτα είναι λάθος τα ορίσματα, πέτα exception
+                                            RESULT = "," + a; :}
+          |;

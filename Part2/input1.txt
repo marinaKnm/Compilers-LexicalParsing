@@ -1,0 +1,10 @@
+foo(x) {
+	"marina"
+}
+
+foo("sds") + reverse "konomi"
+
+if(foo("") prefix foo(foo("")))
+	"HELLO WORLD"
+else
+	"BYE WORLD"

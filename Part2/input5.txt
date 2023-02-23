@@ -1,0 +1,15 @@
+foo(y) {
+    if ("a" + reverse "ann" prefix "anna Logotheti")
+        "Yes" + "this" + reverse "ym" + "friends' name"
+    else
+        boo("a") 
+}
+
+boo(x) {
+    "No" + "this is" + reverse "ton" + "my friends' name"
+}
+
+foo("")
+reverse foo("") 
+reverse foo(boo("a")) + " " + reverse "LALALALALA" + "marina"
+

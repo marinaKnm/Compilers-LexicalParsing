@@ -1,0 +1,13 @@
+name() {
+    reverse "John" + "maria"
+}
+
+surname(a) {
+    if ("a" prefix "anna")
+        "Papadopoulos"
+    else
+        "Marina"
+}
+
+"marina"
+"konomi" + "leonora"
